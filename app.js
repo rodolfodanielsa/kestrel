@@ -11,11 +11,6 @@ const ESTADO_COR = { 'recebida': '#7a8fa6', 'em stock': '#2f7d4f', 'pronta para 
 const loadCatalog = () => { try { return JSON.parse(localStorage.getItem('catalogo')) ?? []; } catch { return []; } };
 function renderCatalog() {
   const cat = loadCatalog();
-  $('catalogo').replaceChildren(...cat.map((c) => {
-    const o = new Option(c.nome, c.nome);
-    if (c.stock != null) o.label = `${c.nome} — stock ${c.stock}${c.reserva ? `, reserva ${c.reserva}` : ''}`;
-    return o;
-  }));
   $('cat-info').textContent = cat.length ? `${cat.length} artigos no catálogo` : 'Sem catálogo';
 }
 renderCatalog();
@@ -25,7 +20,19 @@ function fillPrice() {
   const qty = Number($('quantidade').value);
   if (item && qty >= 1) $('preco').value = +(item.preco * qty).toFixed(2);
 }
-$('modelo').addEventListener('input', fillPrice);
+function showSug() {
+  const q = $('modelo').value.trim().toLowerCase();
+  const hits = loadCatalog().filter((c) => c.nome.toLowerCase().includes(q) && c.nome.toLowerCase() !== q).slice(0, 6);
+  $('sug').replaceChildren(...hits.map((c) => {
+    const b = Object.assign(document.createElement('button'), { type: 'button' });
+    b.textContent = c.stock != null ? `${c.nome} — stock ${c.stock}${c.reserva ? `, reserva ${c.reserva}` : ''}` : c.nome;
+    b.addEventListener('click', () => { $('modelo').value = c.nome; $('sug').replaceChildren(); fillPrice(); });
+    return b;
+  }));
+}
+$('modelo').addEventListener('input', () => { showSug(); fillPrice(); });
+$('modelo').addEventListener('focus', showSug);
+$('modelo').addEventListener('blur', () => setTimeout(() => $('sug').replaceChildren(), 200));
 $('quantidade').addEventListener('input', fillPrice);
 
 for (const e of [...ESTADOS]) {
@@ -87,6 +94,7 @@ function openForm(o) {
   $('pago').checked = !!o?.pago;
   $('notas').value = o?.notas ?? '';
   $('errors').textContent = '';
+  $('sug').replaceChildren();
   $('archive').hidden = !o;
   $('archive').textContent = o?.arquivada ? 'Desarquivar' : 'Arquivar';
   $('dlg').showModal();

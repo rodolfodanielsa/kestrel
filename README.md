@@ -24,7 +24,11 @@ PWA offline-first (HTML + JS puro) para acompanhar encomendas de modelos 3D, com
 
 ## Catálogo
 
-Folha `produtos` no mesmo Google Sheet: coluna A = descrição, coluna B = preço unitário, cabeçalho na linha 1. Cada sincronização traz o catálogo para o telefone (substitui o anterior). No campo Modelo aparecem sugestões e o preço total é calculado ao escolher o artigo e ao mudar a quantidade (preço × quantidade). Depois de alterar o `Code.gs`, criar nova versão da implementação.
+Folha `produtos` no mesmo Google Sheet: coluna A = descrição, coluna B = preço unitário, cabeçalho na linha 1. Cada sincronização traz o catálogo para o telefone (substitui o anterior). No campo Modelo aparecem sugestões e o preço total é calculado ao escolher o artigo e ao mudar a quantidade (preço × quantidade). 
+### Stock
+Se a folha `produtos` tiver uma coluna `Stock` com número, o script gere-a ao sincronizar (a coluna `Reserva` é criada ao lado na primeira vez): encomenda em estado "em stock" e não paga → `Reserva` sobe pela quantidade; ao marcar paga → `Stock` desce e a reserva é libertada; desmarcar "pago" repõe. Produtos sem número em `Stock` não são geridos. A correspondência é pelo nome do modelo (sem distinguir maiúsculas). O que cada encomenda já aplicou fica na coluna `stock_aplicado` da folha `encomendas` (não apagar). Edições manuais no Sheet às encomendas não mexem no stock; só alterações vindas da app. Encomendas anteriores a esta funcionalidade contam como já contabilizadas.
+
+Depois de alterar o `Code.gs`, criar nova versão da implementação.
 
 ## Ordenar e agrupar
 

@@ -11,7 +11,11 @@ const ESTADO_COR = { 'recebida': '#7a8fa6', 'em stock': '#2f7d4f', 'pronta para 
 const loadCatalog = () => { try { return JSON.parse(localStorage.getItem('catalogo')) ?? []; } catch { return []; } };
 function renderCatalog() {
   const cat = loadCatalog();
-  $('catalogo').replaceChildren(...cat.map((c) => new Option(c.nome, c.nome)));
+  $('catalogo').replaceChildren(...cat.map((c) => {
+    const o = new Option(c.nome, c.nome);
+    if (c.stock != null) o.label = `${c.nome} — stock ${c.stock}${c.reserva ? `, reserva ${c.reserva}` : ''}`;
+    return o;
+  }));
   $('cat-info').textContent = cat.length ? `${cat.length} artigos no catálogo` : 'Sem catálogo';
 }
 renderCatalog();

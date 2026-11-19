@@ -156,5 +156,26 @@ test('sortOrders ordena por cliente, estado e agrupa por cliente', () => {
 test('sync devolve o catálogo da folha produtos', async () => {
   const srv = mockAppsScript();
   srv.produtos.push(['Cão', 25], ['Gato', '3,5'], ['Sem preço', ''], ['', 4]);
-  assert.deepEqual(await sync(memStore(), srv.fetch, 'u', 's3cret'), [{ nome: 'Cão', preco: 25 }, { nome: 'Gato', preco: 3.5 }]);
+  assert.deepEqual(await sync(memStore(), srv.fetch, 'u', 's3cret'), [{ nome: 'Cão', preco: 25, stock: null, reserva: null }, { nome: 'Gato', preco: 3.5, stock: null, reserva: null }]);
+});
+
+test('stock: reserva em "em stock", baixa ao pagar, repõe ao despagar, sem duplicar', async () => {
+  const srv = mockAppsScript();
+  srv.produtos[0].push('IVA', 'Tipo', 'Motivo', 'Stock');
+  srv.produtos.push(['Cão', 25, 0, 'P', '', 5], ['Gato', 3, 0, 'P', '', '']);
+  const store = memStore([order('11111111-1111-1111-1111-111111111111', { modelo: 'cão', quantidade: 2, estado: 'em stock', dirty: true })]);
+  const col = () => ({ stock: srv.produtos[1][5], reserva: srv.produtos[1][6] });
+  const put = async (changes, t) => { const o = await store.get('11111111-1111-1111-1111-111111111111'); await store.put({ ...o, ...changes, updated_at: t, dirty: true }); await sync(store, srv.fetch, 'u', 's3cret'); };
+  await sync(store, srv.fetch, 'u', 's3cret');
+  assert.deepEqual(col(), { stock: 5, reserva: 2 });
+  await put({ pago: true }, '2026-01-02T10:00:00.000Z');
+  assert.deepEqual(col(), { stock: 3, reserva: 0 });
+  await put({ notas: 'x' }, '2026-01-03T10:00:00.000Z');
+  assert.deepEqual(col(), { stock: 3, reserva: 0 });
+  await put({ pago: false }, '2026-01-04T10:00:00.000Z');
+  assert.deepEqual(col(), { stock: 5, reserva: 2 });
+  await put({ modelo: 'Gato' }, '2026-01-05T10:00:00.000Z');
+  assert.deepEqual(col(), { stock: 5, reserva: 0 });
+  const cat = await sync(store, srv.fetch, 'u', 's3cret');
+  assert.deepEqual(cat[0], { nome: 'Cão', preco: 25, stock: 5, reserva: 0 });
 });

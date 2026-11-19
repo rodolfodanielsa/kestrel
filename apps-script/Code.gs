@@ -1,13 +1,14 @@
 const SHEET = 'encomendas';
 const COLS = ['id', 'cliente', 'modelo', 'quantidade', 'preco', 'estado', 'pago', 'notas', 'arquivada', 'updated_at'];
 const TEXT_COLS = ['id', 'cliente', 'modelo', 'estado', 'notas', 'updated_at'];
+const APPLIED_COL = COLS.length + 1;
 
 function sheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(SHEET);
   if (!sh) {
     sh = ss.insertSheet(SHEET);
-    sh.appendRow(COLS);
+    sh.appendRow(COLS.concat(['stock_aplicado']));
     // Plain text so Sheets never reinterprets ISO timestamps or ids as dates/numbers.
     TEXT_COLS.forEach((c) => sh.getRange(1, COLS.indexOf(c) + 1, sh.getMaxRows(), 1).setNumberFormat('@'));
   }
@@ -40,13 +41,63 @@ const valid_ = (o) => o && typeof o.id === 'string' && /^[0-9a-f-]{36}$/i.test(o
   Number.isFinite(Number(o.quantidade)) && Number.isFinite(Number(o.preco)) &&
   typeof o.updated_at === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/.test(o.updated_at) && !isNaN(Date.parse(o.updated_at));
 
-function catalogo_() {
+function produtos_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sh = ss.getSheetByName('produtos') || ss.getSheetByName('Produtos');
+  return ss.getSheetByName('produtos') || ss.getSheetByName('Produtos');
+}
+
+function stockCols_(sh) {
+  const h = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map((x) => String(x).trim().toLowerCase());
+  return { stock: h.indexOf('stock') + 1, reserva: h.indexOf('reserva') + 1 };
+}
+
+function catalogo_() {
+  const sh = produtos_();
   if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues()
-    .map((r) => ({ nome: String(r[0]).trim(), preco: String(r[1]).trim() === '' ? NaN : Number(String(r[1]).replace(',', '.')) }))
+  const { stock, reserva } = stockCols_(sh);
+  const n = Math.max(2, stock, reserva);
+  const cell = (r, c) => (c && String(r[c - 1]).trim() !== '' ? Number(r[c - 1]) : null);
+  return sh.getRange(2, 1, sh.getLastRow() - 1, n).getValues()
+    .map((r) => ({ nome: String(r[0]).trim(), preco: String(r[1]).trim() === '' ? NaN : Number(String(r[1]).replace(',', '.')), stock: cell(r, stock), reserva: cell(r, reserva) }))
     .filter((c) => c.nome && Number.isFinite(c.preco));
+}
+
+// What an order currently holds in stock: reserved while "em stock" and unpaid, deducted once paid.
+const applied_ = (o) => ({
+  m: o.modelo,
+  r: o.estado === 'em stock' && !o.pago && !o.arquivada ? o.quantidade : 0,
+  b: o.pago ? o.quantidade : 0,
+});
+
+// Only products with a number in Stock are tracked; Reserva is created next to it on first use.
+function adjustStock_(modelo, dRes, dStock) {
+  if (!dRes && !dStock) return;
+  const sh = produtos_();
+  if (!sh || sh.getLastRow() < 2) return;
+  const cols = stockCols_(sh);
+  if (!cols.stock) return;
+  const names = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+  const idx = names.findIndex((r) => String(r[0]).trim().toLowerCase() === String(modelo).trim().toLowerCase());
+  if (idx < 0) return;
+  const row = idx + 2;
+  const sCell = sh.getRange(row, cols.stock);
+  if (String(sCell.getValue()).trim() === '') return;
+  sCell.setValue(Number(sCell.getValue()) + dStock);
+  if (!cols.reserva) {
+    cols.reserva = sh.getLastColumn() + 1;
+    sh.getRange(1, cols.reserva).setValue('Reserva');
+  }
+  const rCell = sh.getRange(row, cols.reserva);
+  rCell.setValue(Math.max(0, Number(rCell.getValue() || 0) + dRes));
+}
+
+function applyStock_(prev, next) {
+  if (prev.m === next.m) adjustStock_(next.m, next.r - prev.r, -(next.b - prev.b));
+  else { adjustStock_(prev.m, -prev.r, prev.b); adjustStock_(next.m, next.r, -next.b); }
+}
+
+function parseApplied_(v) {
+  try { const a = JSON.parse(v); return a && typeof a.m === 'string' ? a : null; } catch (err) { return null; }
 }
 
 function json_(obj) {
@@ -64,7 +115,7 @@ function doPost(e) {
 
     const sh = sheet_();
     const last = sh.getLastRow();
-    const rows = last > 1 ? sh.getRange(2, 1, last - 1, COLS.length).getValues() : [];
+    const rows = last > 1 ? sh.getRange(2, 1, last - 1, APPLIED_COL).getValues() : [];
     const byId = {};
     rows.forEach((r, i) => { byId[String(r[0])] = i; });
 
@@ -72,15 +123,22 @@ function doPost(e) {
       if (!valid_(o)) continue;
       const row = toRow_(o);
       const i = byId[row[0]];
+      const next = applied_(fromRow_(row));
       if (i === undefined) {
-        rows.push(row);
+        applyStock_({ m: next.m, r: 0, b: 0 }, next);
+        const full = row.concat([JSON.stringify(next)]);
+        rows.push(full);
         byId[row[0]] = rows.length - 1;
         fmtText_(sh, sh.getLastRow() + 1);
-        sh.appendRow(row);
+        sh.appendRow(full);
       } else if (ts_(rows[i][9]) < row[9]) {
-        rows[i] = row;
+        // Rows from before stock tracking have no record: assume they were already accounted for.
+        const prev = parseApplied_(rows[i][APPLIED_COL - 1]) || applied_(fromRow_(rows[i]));
+        applyStock_(prev, next);
+        const full = row.concat([JSON.stringify(next)]);
+        rows[i] = full;
         fmtText_(sh, i + 2);
-        sh.getRange(i + 2, 1, 1, COLS.length).setValues([row]);
+        sh.getRange(i + 2, 1, 1, APPLIED_COL).setValues([full]);
       }
     }
     return json_({ ok: true, orders: rows.filter((r) => r[0] !== '').map(fromRow_), catalogo: catalogo_() });

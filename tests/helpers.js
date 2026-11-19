@@ -25,7 +25,12 @@ export function mockAppsScript(secret = 's3cret') {
   const produtos = [['Descrição', 'Preço']];
   const produtosSheet = {
     getLastRow: () => produtos.length,
-    getRange: (r, c, n, k) => ({ getValues: () => produtos.slice(r - 1, r - 1 + n).map((x) => x.slice(c - 1, c - 1 + k)) }),
+    getLastColumn: () => Math.max(...produtos.map((x) => x.length)),
+    getRange: (r, c, n = 1, k = 1) => ({
+      getValues: () => produtos.slice(r - 1, r - 1 + n).map((x) => Array.from({ length: k }, (_, j) => x[c - 1 + j] ?? '')),
+      getValue: () => produtos[r - 1][c - 1] ?? '',
+      setValue: (v) => { produtos[r - 1][c - 1] = v; },
+    }),
   };
   const ctx = {
     SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: (n) => (n === 'encomendas' ? sheet : n === 'produtos' ? produtosSheet : null) }) },

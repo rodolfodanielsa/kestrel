@@ -97,16 +97,31 @@ test('server skips invalid ids, tolerates unknown estado', async () => {
   assert.equal(r.orders[0].estado, 'zzz');
 });
 
-test('formula injection: stored cells are never formulas, app reads original text', async () => {
+test('formula-like text: text columns formatted as plain text before every write, round-trips exactly', () => {
   const bad = ['=1+1', '@SUM(1)', '-1+1', '+2', "'=x"];
   const sheet = mockAppsScript();
-  const res = sheet.call(JSON.stringify({ secret: 's3cret', orders: bad.map((c, i) =>
-    order(`0000000${i}-0000-0000-0000-000000000000`, { cliente: c, modelo: c, notas: c })) }));
-  const rows = sheet.data.slice(1);
-  assert.equal(rows.length, bad.length);
-  rows.forEach((r) => [r[1], r[2], r[7]].forEach((v) => assert.ok(v.startsWith("'") && !/^[=+\-@]/.test(v))));
+  const mk = (suffix) => bad.map((c, i) =>
+    order(`0000000${i}-0000-0000-0000-000000000000`, { cliente: c, modelo: c, notas: c, estado: c, updated_at: suffix }));
+  const textCols = [2, 3, 6, 8];
+  const assertFormattedBefore = (kind, row) => {
+    const w = sheet.log.findIndex(([k, r]) => k === kind && r === row);
+    assert.ok(w >= 0);
+    const cols = sheet.log.slice(0, w).filter(([k, r, f]) => k === 'fmt' && r === row && f === '@').map((e) => e[3]);
+    textCols.forEach((c) => assert.ok(cols.includes(c)));
+  };
+
+  let res = sheet.call(JSON.stringify({ secret: 's3cret', orders: mk('2026-01-01T00:00:00.000Z') }));
+  assert.equal(sheet.data.length, bad.length + 1);
+  sheet.data.slice(1).forEach((r, i) => [r[1], r[2], r[5], r[7]].forEach((v) => assert.equal(v, bad[i])));
   assert.deepEqual(res.orders.map((o) => o.cliente), bad);
   assert.deepEqual(res.orders.map((o) => o.notas), bad);
+  assert.deepEqual(res.orders.map((o) => o.estado), bad);
+  for (let row = 2; row <= bad.length + 1; row++) assertFormattedBefore('append', row);
+
+  sheet.log.length = 0;
+  res = sheet.call(JSON.stringify({ secret: 's3cret', orders: mk('2026-02-01T00:00:00.000Z') }));
+  for (let row = 2; row <= bad.length + 1; row++) assertFormattedBefore('set', row);
+  assert.deepEqual(res.orders.map((o) => o.modelo), bad);
 });
 
 test('null body gets the clean refusal', () => {

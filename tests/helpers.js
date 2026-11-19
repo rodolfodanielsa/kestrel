@@ -9,16 +9,17 @@ export const memStore = (init = []) => {
 // Runs the real Code.gs against an in-memory sheet; fetch() mock routes to doPost.
 export function mockAppsScript(secret = 's3cret') {
   const data = [['id']];
+  const log = [];
   const sheet = {
     getName: () => 'encomendas',
     getLastRow: () => data.length,
     getRange: (r, c, n = 1, k = 1) => ({
       getValues: () => data.slice(r - 1, r - 1 + n).map((x) => x.slice(c - 1, c - 1 + k)),
-      setValues: (v) => { data[r - 1] = v[0]; },
+      setValues: (v) => { log.push(['set', r]); data[r - 1] = v[0]; },
       setValue: (v) => { data[r - 1][c - 1] = v; },
-      setNumberFormat: () => {},
+      setNumberFormat: (f) => { log.push(['fmt', r, f, c]); },
     }),
-    appendRow: (row) => data.push(row),
+    appendRow: (row) => { log.push(['append', data.length + 1]); data.push(row); },
     getMaxRows: () => 1000,
   };
   const ctx = {
@@ -31,7 +32,7 @@ export function mockAppsScript(secret = 's3cret') {
   vm.runInContext(readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8'), ctx);
   const call = (body) => JSON.parse(ctx.doPost({ postData: { contents: body } }).t);
   return {
-    data, call,
+    data, call, log,
     fetch: async (_url, o) => ({ ok: true, json: async () => call(o.body) }),
     failingFetch: async () => { throw new Error('offline'); },
   };

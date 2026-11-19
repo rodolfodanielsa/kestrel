@@ -5,6 +5,7 @@ const $ = (id) => document.getElementById(id);
 const eur = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 const filters = { estado: 'todos', pago: 'todos' };
 let editing = null;
+const ESTADO_COR = { 'recebida': '#7a8fa6', 'em stock': '#2f7d4f', 'pronta para imprimir': '#f4b942', 'a imprimir': '#b3213b', 'entregue': '#9aa8a1' };
 
 const loadCatalog = () => { try { return JSON.parse(localStorage.getItem('catalogo')) ?? []; } catch { return []; } };
 function renderCatalog() {
@@ -51,10 +52,12 @@ async function render() {
     paid.className = 'badge ' + (o.pago ? 'ok' : 'warn');
     paid.textContent = o.pago ? 'pago' : 'não pago';
     const price = document.createElement('span');
+    price.className = 'price';
     price.textContent = eur.format(o.preco);
-    meta.append(badge, paid, price);
+    meta.append(badge, paid);
     if (o.dirty) meta.append(Object.assign(document.createElement('span'), { textContent: '⏳', title: 'por sincronizar' }));
-    li.append(title, meta);
+    li.style.setProperty('--est', ESTADO_COR[o.estado] ?? '#e0a030');
+    li.append(title, price, meta);
     if (o.notas) li.append(Object.assign(document.createElement('small'), { textContent: o.notas }));
     li.addEventListener('click', () => openForm(o));
     ul.append(li);

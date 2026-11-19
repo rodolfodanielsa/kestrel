@@ -17,20 +17,23 @@ function sheet_() {
 const bool_ = (v) => v === true || String(v).toLowerCase() === 'true';
 const ts_ = (v) => (v instanceof Date ? v.toISOString() : String(v));
 const str_ = (v, max) => String(v == null ? '' : v).slice(0, max);
+// Leading ' defuses formulas whatever the cell format; ' itself is escaped so the round trip is exact.
+const esc_ = (v, max) => str_(v, max).replace(/^(?=['=+\-@])/, "'");
+const unesc_ = (v) => String(v).replace(/^'(?=['=+\-@])/, '');
 
 function fromRow_(r) {
   return {
-    id: String(r[0]), cliente: String(r[1]), modelo: String(r[2]),
-    quantidade: Number(r[3]), preco: Number(r[4]), estado: String(r[5]),
-    pago: bool_(r[6]), notas: String(r[7]), arquivada: bool_(r[8]), updated_at: ts_(r[9]),
+    id: String(r[0]), cliente: unesc_(r[1]), modelo: unesc_(r[2]),
+    quantidade: Number(r[3]), preco: Number(r[4]), estado: unesc_(r[5]),
+    pago: bool_(r[6]), notas: unesc_(r[7]), arquivada: bool_(r[8]), updated_at: ts_(r[9]),
   };
 }
 
 function toRow_(o) {
   return [
-    str_(o.id, 64), str_(o.cliente, 200), str_(o.modelo, 200),
-    Number(o.quantidade), Number(o.preco), str_(o.estado, 50),
-    bool_(o.pago), str_(o.notas, 2000), bool_(o.arquivada), ts_(o.updated_at),
+    str_(o.id, 64), esc_(o.cliente, 200), esc_(o.modelo, 200),
+    Number(o.quantidade), Number(o.preco), esc_(o.estado, 50),
+    bool_(o.pago), esc_(o.notas, 2000), bool_(o.arquivada), ts_(o.updated_at),
   ];
 }
 
@@ -49,7 +52,7 @@ function doPost(e) {
     let req;
     try { req = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'pedido inválido' }); }
     const secret = PropertiesService.getScriptProperties().getProperty('SECRET');
-    if (!secret || req.secret !== secret) return json_({ ok: false, error: 'não autorizado' });
+    if (!secret || !req || req.secret !== secret) return json_({ ok: false, error: 'não autorizado' });
 
     const sh = sheet_();
     const last = sh.getLastRow();

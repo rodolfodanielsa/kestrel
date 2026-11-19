@@ -96,3 +96,19 @@ test('server skips invalid ids, tolerates unknown estado', async () => {
   assert.equal(r.orders.length, 1);
   assert.equal(r.orders[0].estado, 'zzz');
 });
+
+test('formula injection: stored cells are never formulas, app reads original text', async () => {
+  const bad = ['=1+1', '@SUM(1)', '-1+1', '+2', "'=x"];
+  const sheet = mockAppsScript();
+  const res = sheet.call(JSON.stringify({ secret: 's3cret', orders: bad.map((c, i) =>
+    order(`0000000${i}-0000-0000-0000-000000000000`, { cliente: c, modelo: c, notas: c })) }));
+  const rows = sheet.data.slice(1);
+  assert.equal(rows.length, bad.length);
+  rows.forEach((r) => [r[1], r[2], r[7]].forEach((v) => assert.ok(v.startsWith("'") && !/^[=+\-@]/.test(v))));
+  assert.deepEqual(res.orders.map((o) => o.cliente), bad);
+  assert.deepEqual(res.orders.map((o) => o.notas), bad);
+});
+
+test('null body gets the clean refusal', () => {
+  assert.deepEqual(mockAppsScript().call('null'), { ok: false, error: 'não autorizado' });
+});

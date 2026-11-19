@@ -20,7 +20,10 @@ function fillPrice() {
   const item = loadCatalog().find((c) => c.nome === $('modelo').value.trim());
   const qty = Number($('quantidade').value);
   if (item && qty >= 1) $('preco').value = +(item.preco * qty).toFixed(2);
-  if (!editing && !estadoManual && item?.stock != null) $('estado').value = item.stock - (item.reserva ?? 0) >= qty ? 'em stock' : ESTADOS[0];
+  if (!estadoManual && item?.stock != null && (!editing || (!editing.pago && ['recebida', 'em stock'].includes($('estado').value)))) {
+    const own = editing?.estado === 'em stock' && editing.modelo.toLowerCase() === item.nome.toLowerCase() ? editing.quantidade : 0;
+    $('estado').value = item.stock - (item.reserva ?? 0) + own >= qty ? 'em stock' : ESTADOS[0];
+  }
 }
 $('estado').addEventListener('change', () => { estadoManual = true; });
 function showSug() {

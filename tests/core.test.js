@@ -137,15 +137,24 @@ test('null body gets the clean refusal', () => {
   assert.deepEqual(mockAppsScript().call('null'), { ok: false, error: 'não autorizado' });
 });
 
-import { parseCatalog } from '../core.js';
-test('parseCatalog lê nome e preço, mesmo com vírgulas no nome', () => {
-  const csv = '﻿Descrição,Preço,IVA,Tipo,Motivo de isenção\r\nCao,25.00,0,Produto,M10\r\nA, B,3.50,0,Produto,M10\r\n\r\n';
-  assert.deepEqual(parseCatalog(csv), [{ nome: 'Cao', preco: 25 }, { nome: 'A, B', preco: 3.5 }]);
-});
-
 import { totalEmDivida } from '../core.js';
 test('totalEmDivida soma só não pagas e não arquivadas', () => {
   const o = (preco, pago, arquivada = false) => ({ preco, pago, arquivada });
   assert.equal(totalEmDivida([o(10, false), o(5.5, false), o(7, true), o(9, false, true)]), 15.5);
   assert.equal(totalEmDivida([]), 0);
+});
+
+import { sortOrders } from '../core.js';
+test('sortOrders ordena por cliente, estado e agrupa por cliente', () => {
+  const o = (cliente, estado, updated_at) => ({ cliente, estado, modelo: 'x', updated_at });
+  const l = [o('Zé', 'entregue', '1'), o('ana', 'recebida', '3'), o('Zé', 'recebida', '2'), o('Bia', '???', '4')];
+  assert.deepEqual(sortOrders(l, 'cliente').map((x) => x.cliente), ['ana', 'Bia', 'Zé', 'Zé']);
+  assert.deepEqual(sortOrders(l, 'estado').map((x) => x.estado), ['recebida', 'recebida', 'entregue', '???']);
+  assert.deepEqual(sortOrders(l, 'recentes', true).map((x) => x.updated_at), ['3', '4', '2', '1']);
+});
+
+test('sync devolve o catálogo da folha produtos', async () => {
+  const srv = mockAppsScript();
+  srv.produtos.push(['Cão', 25], ['Gato', '3,5'], ['Sem preço', ''], ['', 4]);
+  assert.deepEqual(await sync(memStore(), srv.fetch, 'u', 's3cret'), [{ nome: 'Cão', preco: 25 }, { nome: 'Gato', preco: 3.5 }]);
 });

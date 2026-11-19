@@ -22,8 +22,13 @@ export function mockAppsScript(secret = 's3cret') {
     appendRow: (row) => { log.push(['append', data.length + 1]); data.push(row); },
     getMaxRows: () => 1000,
   };
+  const produtos = [['Descrição', 'Preço']];
+  const produtosSheet = {
+    getLastRow: () => produtos.length,
+    getRange: (r, c, n, k) => ({ getValues: () => produtos.slice(r - 1, r - 1 + n).map((x) => x.slice(c - 1, c - 1 + k)) }),
+  };
   const ctx = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: () => sheet }) },
+    SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: (n) => (n === 'encomendas' ? sheet : n === 'produtos' ? produtosSheet : null) }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: () => secret }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ t, setMimeType() { return this; } }) },
@@ -32,7 +37,7 @@ export function mockAppsScript(secret = 's3cret') {
   vm.runInContext(readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8'), ctx);
   const call = (body) => JSON.parse(ctx.doPost({ postData: { contents: body } }).t);
   return {
-    data, call, log,
+    data, call, log, produtos,
     fetch: async (_url, o) => ({ ok: true, json: async () => call(o.body) }),
     failingFetch: async () => { throw new Error('offline'); },
   };

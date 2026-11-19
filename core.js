@@ -36,6 +36,20 @@ export function filterOrders(orders, { estado = 'todos', pago = 'todos' } = {}) 
   });
 }
 
+const collator = new Intl.Collator('pt', { sensitivity: 'base' });
+export const sameCliente = (a, b) => collator.compare(a.cliente, b.cliente) === 0;
+const estadoRank = (o) => { const i = ESTADOS.indexOf(o.estado); return i < 0 ? ESTADOS.length : i; };
+const SORTS = {
+  recentes: (a, b) => b.updated_at.localeCompare(a.updated_at),
+  cliente: (a, b) => collator.compare(a.cliente, b.cliente),
+  modelo: (a, b) => collator.compare(a.modelo, b.modelo),
+  estado: (a, b) => estadoRank(a) - estadoRank(b),
+};
+export function sortOrders(orders, by = 'recentes', agrupar = false) {
+  const list = [...orders].sort(SORTS[by] ?? SORTS.recentes);
+  return agrupar ? list.sort(SORTS.cliente) : list;
+}
+
 export const totalEmDivida = (orders) => orders.filter((o) => !o.arquivada && !o.pago).reduce((t, o) => t + o.preco, 0);
 
 const matchPago = (o, pago) => pago === 'todos' || (pago === 'pago') === !!o.pago;
@@ -69,15 +83,5 @@ export async function sync(store, fetchFn, url, secret) {
     const local = await store.get(s.id);
     if (local && local.dirty && local.updated_at === s.updated_at) await store.put({ ...local, dirty: false });
   }
-}
-
-// Description may contain commas, so only the 4 trailing columns are split off.
-export function parseCatalog(text) {
-  return text.replace(/^\uFEFF/, '').split(/\r?\n/).slice(1).flatMap((line) => {
-    const parts = line.split(',');
-    if (parts.length < 5) return [];
-    const preco = Number(parts[parts.length - 4]);
-    const nome = parts.slice(0, -4).join(',').trim();
-    return nome && Number.isFinite(preco) ? [{ nome, preco }] : [];
-  });
+  return data.catalogo;
 }

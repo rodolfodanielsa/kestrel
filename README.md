@@ -24,4 +24,8 @@ PWA offline-first (HTML + JS puro) para acompanhar encomendas de modelos 3D, com
 
 ## Catálogo
 
-⚙ Definições → "Catálogo (CSV)" importa um CSV com colunas `Descrição,Preço,IVA,Tipo,Motivo de isenção`. Fica só neste dispositivo (localStorage). No campo Modelo aparecem sugestões, e escolher um artigo preenche o preço total (preço × quantidade).
+Folha `produtos` no mesmo Google Sheet: coluna A = descrição, coluna B = preço unitário, cabeçalho na linha 1. Cada sincronização traz o catálogo para o telefone (substitui o anterior). No campo Modelo aparecem sugestões e o preço total é calculado ao escolher o artigo e ao mudar a quantidade (preço × quantidade). Depois de alterar o `Code.gs`, criar nova versão da implementação.
+
+## Ordenar e agrupar
+
+Seletor de ordem (recentes, cliente, modelo, estado) e "Agrupar por cliente": cabeçalho com nº de peças e valor em dívida.

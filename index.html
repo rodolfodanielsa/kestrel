@@ -16,16 +16,20 @@
   body { font: 16px/1.4 system-ui, sans-serif; margin: 0; padding: 0 14px calc(32px + env(safe-area-inset-bottom)); max-width: 640px; margin-inline: auto; background: var(--abeto); color: var(--papel); min-height: 100vh; }
   header { position: sticky; top: 0; z-index: 1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: calc(12px + env(safe-area-inset-top)) 0 12px; background: var(--abeto); }
   h1 { font: 700 1.6rem ui-serif, Georgia, serif; margin: 0; flex: 1; letter-spacing: -.01em; }
-  button, select, input, textarea { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; }
+  button, select, input, textarea { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; }
   button { background: var(--abeto-2); color: var(--papel); border-color: #2d5a4f; min-height: 44px; }
   #new { background: var(--ambar); color: #2a1d00; font-weight: 700; border: 0; }
   button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, li:focus-visible { outline: 3px solid var(--ambar); outline-offset: 2px; }
   #status { flex-basis: 100%; color: #9fb8ae; font-size: .85rem; min-height: 1.2em; }
   #divida { margin: 0 0 12px; color: var(--ambar); font: 700 1.1rem ui-serif, Georgia, serif; }
   #divida:empty { display: none; }
-  .filters { display: flex; gap: 8px; margin-bottom: 12px; }
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters label.row { color: var(--papel); }
+  li.group { background: none; color: var(--ambar); font: 700 1.05rem ui-serif, Georgia, serif; padding: 8px 4px 0; margin: 6px 0 8px; display: flex; justify-content: space-between; cursor: default; border: 0; border-bottom: 1px solid #2d5a4f; border-radius: 0; }
+  li.group::before { display: none; }
+  li.group span { font: .85rem system-ui, sans-serif; color: #9fb8ae; }
   #status:empty { display: none; }
-  .filters select { flex: 1; min-width: 0; background: var(--abeto-2); color: var(--papel); border-color: #2d5a4f; }
+  .filters select { flex: 1 1 40%; min-width: 0; background: var(--abeto-2); color: var(--papel); border-color: #2d5a4f; }
   ul { list-style: none; padding: 0; margin: 0; }
   li { position: relative; background: var(--papel); color: var(--tinta); border-radius: 6px 14px 14px 6px; padding: 12px 14px 12px 22px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; cursor: pointer; border-left: 8px solid var(--est, #9aa8a1); }
   li::before { content: ''; position: absolute; left: -5px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: var(--abeto); }
@@ -64,6 +68,10 @@
   <select id="f-pago" aria-label="Filtrar por pagamento">
     <option value="todos">Pago e não pago</option><option value="pago">Pago</option><option value="nao">Não pago</option>
   </select>
+  <select id="f-ordem" aria-label="Ordenar por">
+    <option value="recentes">Mais recentes</option><option value="cliente">Cliente (A–Z)</option><option value="modelo">Modelo (A–Z)</option><option value="estado">Estado</option>
+  </select>
+  <label class="row"><input type="checkbox" id="f-agrupar"> Agrupar por cliente</label>
 </div>
 <ul id="list"></ul>
 <p id="empty" hidden>Sem encomendas.</p>
@@ -93,7 +101,6 @@
     <h2>Definições de sync</h2>
     <label>URL do web app <input id="url" type="url" autocomplete="off"></label>
     <label>Segredo <input id="secret" type="password" autocomplete="off"></label>
-    <label>Catálogo (CSV) <input id="csv" type="file" accept=".csv,text/csv"></label>
     <small id="cat-info"></small>
     <div class="actions"><button type="submit">Guardar</button></div>
   </form>

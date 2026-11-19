@@ -1,9 +1,10 @@
-import { ESTADOS, DESCONHECIDO, validate, newOrder, touch, filterOrders, sync, parseCatalog, totalEmDivida } from './core.js';
+import { ESTADOS, DESCONHECIDO, validate, newOrder, touch, filterOrders, sortOrders, sameCliente, sync, totalEmDivida } from './core.js';
 import { store } from './db.js';
 
 const $ = (id) => document.getElementById(id);
 const eur = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 const filters = { estado: 'todos', pago: 'todos' };
+const view = { ordem: 'recentes', agrupar: false };
 let editing = null;
 const ESTADO_COR = { 'recebida': '#7a8fa6', 'em stock': '#2f7d4f', 'pronta para imprimir': '#f4b942', 'a imprimir': '#b3213b', 'entregue': '#9aa8a1' };
 
@@ -20,14 +21,8 @@ function fillPrice() {
   const qty = Number($('quantidade').value);
   if (item && qty >= 1) $('preco').value = +(item.preco * qty).toFixed(2);
 }
-$('modelo').addEventListener('change', fillPrice);
-$('quantidade').addEventListener('change', fillPrice);
-$('csv').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  localStorage.setItem('catalogo', JSON.stringify(parseCatalog(await file.text())));
-  renderCatalog();
-});
+$('modelo').addEventListener('input', fillPrice);
+$('quantidade').addEventListener('input', fillPrice);
 
 for (const e of [...ESTADOS]) {
   for (const sel of [$('f-estado'), $('estado')]) sel.append(new Option(e, e));
@@ -38,11 +33,21 @@ async function render() {
   const all = await store.all();
   const divida = totalEmDivida(all);
   $('divida').textContent = divida > 0 ? `Em dívida: ${eur.format(divida)}` : '';
-  const orders = filterOrders(all, filters).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  const orders = sortOrders(filterOrders(all, filters), view.ordem, view.agrupar);
   const ul = $('list');
   ul.replaceChildren();
   $('empty').hidden = orders.length > 0;
+  let prev = null;
   for (const o of orders) {
+    if (view.agrupar && !(prev && sameCliente(prev, o))) {
+      const mine = orders.filter((x) => sameCliente(x, o));
+      const owed = totalEmDivida(mine);
+      const pecas = mine.reduce((t, x) => t + x.quantidade, 0);
+      const head = Object.assign(document.createElement('li'), { className: 'group', textContent: o.cliente });
+      head.append(Object.assign(document.createElement('span'), { textContent: `${pecas} ${pecas === 1 ? 'peça' : 'peças'} · ${owed > 0 ? 'em dívida ' + eur.format(owed) : 'tudo pago'}` }));
+      ul.append(head);
+    }
+    prev = o;
     const li = document.createElement('li');
     const known = ESTADOS.includes(o.estado);
     const title = document.createElement('strong');
@@ -103,6 +108,8 @@ $('archive').addEventListener('click', async () => {
 $('cancel').addEventListener('click', () => $('dlg').close());
 $('new').addEventListener('click', () => openForm(null));
 $('f-estado').addEventListener('change', (e) => { filters.estado = e.target.value; render(); });
+$('f-ordem').addEventListener('change', (e) => { view.ordem = e.target.value; render(); });
+$('f-agrupar').addEventListener('change', (e) => { view.agrupar = e.target.checked; render(); });
 $('f-pago').addEventListener('change', (e) => { filters.pago = e.target.value; render(); });
 
 $('settings-btn').addEventListener('click', () => {
@@ -122,7 +129,8 @@ async function doSync() {
   syncing = true;
   $('status').textContent = 'a sincronizar…';
   try {
-    await sync(store, (u, o) => fetch(u, o), localStorage.getItem('syncUrl'), localStorage.getItem('syncSecret'));
+    const cat = await sync(store, (u, o) => fetch(u, o), localStorage.getItem('syncUrl'), localStorage.getItem('syncSecret'));
+    if (Array.isArray(cat)) { localStorage.setItem('catalogo', JSON.stringify(cat)); renderCatalog(); }
     $('status').textContent = 'sincronizado ' + new Date().toLocaleTimeString('pt-PT');
   } catch (e) {
     $('status').textContent = 'sync falhou: ' + (e.message || e);

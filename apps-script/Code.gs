@@ -40,6 +40,15 @@ const valid_ = (o) => o && typeof o.id === 'string' && /^[0-9a-f-]{36}$/i.test(o
   Number.isFinite(Number(o.quantidade)) && Number.isFinite(Number(o.preco)) &&
   typeof o.updated_at === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/.test(o.updated_at) && !isNaN(Date.parse(o.updated_at));
 
+function catalogo_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('produtos') || ss.getSheetByName('Produtos');
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues()
+    .map((r) => ({ nome: String(r[0]).trim(), preco: String(r[1]).trim() === '' ? NaN : Number(String(r[1]).replace(',', '.')) }))
+    .filter((c) => c.nome && Number.isFinite(c.preco));
+}
+
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -74,7 +83,7 @@ function doPost(e) {
         sh.getRange(i + 2, 1, 1, COLS.length).setValues([row]);
       }
     }
-    return json_({ ok: true, orders: rows.filter((r) => r[0] !== '').map(fromRow_) });
+    return json_({ ok: true, orders: rows.filter((r) => r[0] !== '').map(fromRow_), catalogo: catalogo_() });
   } finally {
     lock.releaseLock();
   }

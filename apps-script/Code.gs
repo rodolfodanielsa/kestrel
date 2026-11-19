@@ -62,38 +62,42 @@ function catalogo_() {
     .filter((c) => c.nome && Number.isFinite(c.preco));
 }
 
-// What an order currently holds in stock: reserved while "em stock" and unpaid, deducted once paid.
-const applied_ = (o) => ({
-  m: o.modelo,
-  r: o.estado === 'em stock' && !o.pago && !o.arquivada ? o.quantidade : 0,
-  b: o.pago ? o.quantidade : 0,
-});
-
 // Only products with a number in Stock are tracked; Reserva is created next to it on first use.
-function adjustStock_(modelo, dRes, dStock) {
-  if (!dRes && !dStock) return;
+function track_(modelo) {
   const sh = produtos_();
-  if (!sh || sh.getLastRow() < 2) return;
+  if (!sh || sh.getLastRow() < 2) return null;
   const cols = stockCols_(sh);
-  if (!cols.stock) return;
+  if (!cols.stock) return null;
   const names = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
   const idx = names.findIndex((r) => String(r[0]).trim().toLowerCase() === String(modelo).trim().toLowerCase());
-  if (idx < 0) return;
-  const row = idx + 2;
-  const sCell = sh.getRange(row, cols.stock);
-  if (String(sCell.getValue()).trim() === '') return;
-  sCell.setValue(Number(sCell.getValue()) + dStock);
+  if (idx < 0 || String(sh.getRange(idx + 2, cols.stock).getValue()).trim() === '') return null;
   if (!cols.reserva) {
     cols.reserva = sh.getLastColumn() + 1;
     sh.getRange(1, cols.reserva).setValue('Reserva');
   }
-  const rCell = sh.getRange(row, cols.reserva);
-  rCell.setValue(Math.max(0, Number(rCell.getValue() || 0) + dRes));
+  return { sh, row: idx + 2, cols };
 }
 
-function applyStock_(prev, next) {
-  if (prev.m === next.m) adjustStock_(next.m, next.r - prev.r, -(next.b - prev.b));
-  else { adjustStock_(prev.m, -prev.r, prev.b); adjustStock_(next.m, next.r, -next.b); }
+const cellNum_ = (t, c) => Number(t.sh.getRange(t.row, c).getValue() || 0);
+
+function bump_(t, dRes, dStock) {
+  if (dStock) t.sh.getRange(t.row, t.cols.stock).setValue(cellNum_(t, t.cols.stock) + dStock);
+  if (dRes) t.sh.getRange(t.row, t.cols.reserva).setValue(Math.max(0, cellNum_(t, t.cols.reserva) + dRes));
+}
+
+// Releases what the order held before, then takes what is free now: unpaid orders reserve, paid ones deduct.
+// Whatever is not in stock is simply not reserved (made to order).
+function applyStock_(prev, o) {
+  const next = { m: o.modelo, r: 0, b: 0 };
+  const old = track_(prev.m);
+  if (old) bump_(old, -prev.r, prev.b);
+  const cur = track_(o.modelo);
+  if (cur && (o.pago || !o.arquivada)) {
+    const free = Math.max(0, cellNum_(cur, cur.cols.stock) - cellNum_(cur, cur.cols.reserva));
+    const take = Math.min(o.quantidade, free);
+    if (o.pago) { bump_(cur, 0, -take); next.b = take; } else { bump_(cur, take, 0); next.r = take; }
+  }
+  return next;
 }
 
 function parseApplied_(v) {
@@ -123,19 +127,15 @@ function doPost(e) {
       if (!valid_(o)) continue;
       const row = toRow_(o);
       const i = byId[row[0]];
-      const next = applied_(fromRow_(row));
+      const prev = i === undefined ? { m: row[2], r: 0, b: 0 } : parseApplied_(rows[i][APPLIED_COL - 1]) || { m: String(rows[i][2]), r: 0, b: 0 };
       if (i === undefined) {
-        applyStock_({ m: next.m, r: 0, b: 0 }, next);
-        const full = row.concat([JSON.stringify(next)]);
+        const full = row.concat([JSON.stringify(applyStock_(prev, fromRow_(row)))]);
         rows.push(full);
         byId[row[0]] = rows.length - 1;
         fmtText_(sh, sh.getLastRow() + 1);
         sh.appendRow(full);
       } else if (ts_(rows[i][9]) < row[9]) {
-        // Rows from before stock tracking have no record: assume they were already accounted for.
-        const prev = parseApplied_(rows[i][APPLIED_COL - 1]) || applied_(fromRow_(rows[i]));
-        applyStock_(prev, next);
-        const full = row.concat([JSON.stringify(next)]);
+        const full = row.concat([JSON.stringify(applyStock_(prev, fromRow_(row)))]);
         rows[i] = full;
         fmtText_(sh, i + 2);
         sh.getRange(i + 2, 1, 1, APPLIED_COL).setValues([full]);

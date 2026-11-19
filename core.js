@@ -68,3 +68,14 @@ export async function sync(store, fetchFn, url, secret) {
     if (local && local.dirty && local.updated_at === s.updated_at) await store.put({ ...local, dirty: false });
   }
 }
+
+// Description may contain commas, so only the 4 trailing columns are split off.
+export function parseCatalog(text) {
+  return text.replace(/^\uFEFF/, '').split(/\r?\n/).slice(1).flatMap((line) => {
+    const parts = line.split(',');
+    if (parts.length < 5) return [];
+    const preco = Number(parts[parts.length - 4]);
+    const nome = parts.slice(0, -4).join(',').trim();
+    return nome && Number.isFinite(preco) ? [{ nome, preco }] : [];
+  });
+}

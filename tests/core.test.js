@@ -136,3 +136,9 @@ test('non-ISO updated_at (formula payload) is skipped and never written', () => 
 test('null body gets the clean refusal', () => {
   assert.deepEqual(mockAppsScript().call('null'), { ok: false, error: 'não autorizado' });
 });
+
+import { parseCatalog } from '../core.js';
+test('parseCatalog lê nome e preço, mesmo com vírgulas no nome', () => {
+  const csv = '﻿Descrição,Preço,IVA,Tipo,Motivo de isenção\r\nCao,25.00,0,Produto,M10\r\nA, B,3.50,0,Produto,M10\r\n\r\n';
+  assert.deepEqual(parseCatalog(csv), [{ nome: 'Cao', preco: 25 }, { nome: 'A, B', preco: 3.5 }]);
+});

@@ -1,10 +1,32 @@
-import { ESTADOS, DESCONHECIDO, validate, newOrder, touch, filterOrders, sync } from './core.js';
+import { ESTADOS, DESCONHECIDO, validate, newOrder, touch, filterOrders, sync, parseCatalog } from './core.js';
 import { store } from './db.js';
 
 const $ = (id) => document.getElementById(id);
 const eur = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 const filters = { estado: 'todos', pago: 'todos' };
 let editing = null;
+
+const loadCatalog = () => { try { return JSON.parse(localStorage.getItem('catalogo')) ?? []; } catch { return []; } };
+function renderCatalog() {
+  const cat = loadCatalog();
+  $('catalogo').replaceChildren(...cat.map((c) => new Option(c.nome, c.nome)));
+  $('cat-info').textContent = cat.length ? `${cat.length} artigos no catálogo` : 'Sem catálogo';
+}
+renderCatalog();
+
+function fillPrice() {
+  const item = loadCatalog().find((c) => c.nome === $('modelo').value.trim());
+  const qty = Number($('quantidade').value);
+  if (item && qty >= 1) $('preco').value = +(item.preco * qty).toFixed(2);
+}
+$('modelo').addEventListener('change', fillPrice);
+$('quantidade').addEventListener('change', fillPrice);
+$('csv').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  localStorage.setItem('catalogo', JSON.stringify(parseCatalog(await file.text())));
+  renderCatalog();
+});
 
 for (const e of [...ESTADOS]) {
   for (const sel of [$('f-estado'), $('estado')]) sel.append(new Option(e, e));
@@ -80,6 +102,7 @@ $('f-pago').addEventListener('change', (e) => { filters.pago = e.target.value; r
 $('settings-btn').addEventListener('click', () => {
   $('url').value = localStorage.getItem('syncUrl') ?? '';
   $('secret').value = localStorage.getItem('syncSecret') ?? '';
+  renderCatalog();
   $('sdlg').showModal();
 });
 $('settings-form').addEventListener('submit', () => {
@@ -96,7 +119,7 @@ async function doSync() {
     await sync(store, (u, o) => fetch(u, o), localStorage.getItem('syncUrl'), localStorage.getItem('syncSecret'));
     $('status').textContent = 'sincronizado ' + new Date().toLocaleTimeString('pt-PT');
   } catch (e) {
-    $('status').textContent = 'sync falhou';
+    $('status').textContent = 'sync falhou: ' + (e.message || e);
   } finally {
     syncing = false;
     await render();

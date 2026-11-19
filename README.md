@@ -21,3 +21,7 @@ PWA offline-first (HTML + JS puro) para acompanhar encomendas de modelos 3D, com
 - `npm run serve` — serve em http://localhost:8080.
 - `node tools/make-icons.js` — regenera os ícones.
 - Teste do segredo: `curl -L -d '{"secret":"X","orders":[]}' -H 'Content-Type: text/plain' <URL>` → `{"ok":false,...}` sem segredo certo.
+
+## Catálogo
+
+⚙ Definições → "Catálogo (CSV)" importa um CSV com colunas `Descrição,Preço,IVA,Tipo,Motivo de isenção`. Fica só neste dispositivo (localStorage). No campo Modelo aparecem sugestões, e escolher um artigo preenche o preço total (preço × quantidade).

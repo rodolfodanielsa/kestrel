@@ -51,7 +51,8 @@
   <form id="order-form" method="dialog" novalidate>
     <h2 id="form-title"></h2>
     <label>Cliente <input id="cliente" required></label>
-    <label>Modelo <input id="modelo" required></label>
+    <label>Modelo <input id="modelo" list="catalogo" required></label>
+    <datalist id="catalogo"></datalist>
     <label>Quantidade <input id="quantidade" inputmode="numeric"></label>
     <label>Preço total (€) <input id="preco" inputmode="decimal"></label>
     <label>Estado <select id="estado"></select></label>
@@ -71,6 +72,8 @@
     <h2>Definições de sync</h2>
     <label>URL do web app <input id="url" type="url" autocomplete="off"></label>
     <label>Segredo <input id="secret" type="password" autocomplete="off"></label>
+    <label>Catálogo (CSV) <input id="csv" type="file" accept=".csv,text/csv"></label>
+    <small id="cat-info"></small>
     <div class="actions"><button type="submit">Guardar</button></div>
   </form>
 </dialog>

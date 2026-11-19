@@ -6,6 +6,7 @@ const eur = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' 
 const filters = { estado: 'todos', pago: 'todos' };
 const view = { ordem: 'recentes', agrupar: false };
 let editing = null;
+let estadoManual = false;
 const ESTADO_COR = { 'recebida': '#7a8fa6', 'em stock': '#2f7d4f', 'pronta para imprimir': '#f4b942', 'a imprimir': '#b3213b', 'entregue': '#9aa8a1' };
 
 const loadCatalog = () => { try { return JSON.parse(localStorage.getItem('catalogo')) ?? []; } catch { return []; } };
@@ -19,7 +20,9 @@ function fillPrice() {
   const item = loadCatalog().find((c) => c.nome === $('modelo').value.trim());
   const qty = Number($('quantidade').value);
   if (item && qty >= 1) $('preco').value = +(item.preco * qty).toFixed(2);
+  if (!editing && !estadoManual && item?.stock != null) $('estado').value = item.stock - (item.reserva ?? 0) >= qty ? 'em stock' : ESTADOS[0];
 }
+$('estado').addEventListener('change', () => { estadoManual = true; });
 function showSug() {
   const q = $('modelo').value.trim().toLowerCase();
   const hits = loadCatalog().filter((c) => c.nome.toLowerCase().includes(q) && c.nome.toLowerCase() !== q).slice(0, 6);
@@ -85,6 +88,7 @@ async function render() {
 
 function openForm(o) {
   editing = o;
+  estadoManual = false;
   $('form-title').textContent = o ? 'Editar encomenda' : 'Nova encomenda';
   $('cliente').value = o?.cliente ?? '';
   $('modelo').value = o?.modelo ?? '';

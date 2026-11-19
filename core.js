@@ -36,6 +36,8 @@ export function filterOrders(orders, { estado = 'todos', pago = 'todos' } = {}) 
   });
 }
 
+export const totalEmDivida = (orders) => orders.filter((o) => !o.arquivada && !o.pago).reduce((t, o) => t + o.preco, 0);
+
 const matchPago = (o, pago) => pago === 'todos' || (pago === 'pago') === !!o.pago;
 
 export function merge(local, remote) {

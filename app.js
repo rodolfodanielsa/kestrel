@@ -1,4 +1,4 @@
-import { ESTADOS, DESCONHECIDO, validate, newOrder, touch, filterOrders, sync, parseCatalog } from './core.js';
+import { ESTADOS, DESCONHECIDO, validate, newOrder, touch, filterOrders, sync, parseCatalog, totalEmDivida } from './core.js';
 import { store } from './db.js';
 
 const $ = (id) => document.getElementById(id);
@@ -35,7 +35,10 @@ for (const e of [...ESTADOS]) {
 $('f-estado').append(new Option(DESCONHECIDO, DESCONHECIDO), new Option('arquivadas', 'arquivadas'));
 
 async function render() {
-  const orders = filterOrders(await store.all(), filters).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  const all = await store.all();
+  const divida = totalEmDivida(all);
+  $('divida').textContent = divida > 0 ? `Em dívida: ${eur.format(divida)}` : '';
+  const orders = filterOrders(all, filters).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   const ul = $('list');
   ul.replaceChildren();
   $('empty').hidden = orders.length > 0;

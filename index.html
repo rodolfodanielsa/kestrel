@@ -21,6 +21,8 @@
   #new { background: var(--ambar); color: #2a1d00; font-weight: 700; border: 0; }
   button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, li:focus-visible { outline: 3px solid var(--ambar); outline-offset: 2px; }
   #status { flex-basis: 100%; color: #9fb8ae; font-size: .85rem; min-height: 1.2em; }
+  #divida { margin: 0 0 12px; color: var(--ambar); font: 700 1.1rem ui-serif, Georgia, serif; }
+  #divida:empty { display: none; }
   .filters { display: flex; gap: 8px; margin-bottom: 12px; }
   #status:empty { display: none; }
   .filters select { flex: 1; min-width: 0; background: var(--abeto-2); color: var(--papel); border-color: #2d5a4f; }
@@ -56,6 +58,7 @@
   <button id="settings-btn" aria-label="Definições">⚙</button>
   <span id="status" role="status"></span>
 </header>
+<p id="divida"></p>
 <div class="filters">
   <select id="f-estado" aria-label="Filtrar por estado"><option value="todos">Todos os estados</option></select>
   <select id="f-pago" aria-label="Filtrar por pagamento">

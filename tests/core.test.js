@@ -142,3 +142,10 @@ test('parseCatalog lê nome e preço, mesmo com vírgulas no nome', () => {
   const csv = '﻿Descrição,Preço,IVA,Tipo,Motivo de isenção\r\nCao,25.00,0,Produto,M10\r\nA, B,3.50,0,Produto,M10\r\n\r\n';
   assert.deepEqual(parseCatalog(csv), [{ nome: 'Cao', preco: 25 }, { nome: 'A, B', preco: 3.5 }]);
 });
+
+import { totalEmDivida } from '../core.js';
+test('totalEmDivida soma só não pagas e não arquivadas', () => {
+  const o = (preco, pago, arquivada = false) => ({ preco, pago, arquivada });
+  assert.equal(totalEmDivida([o(10, false), o(5.5, false), o(7, true), o(9, false, true)]), 15.5);
+  assert.equal(totalEmDivida([]), 0);
+});

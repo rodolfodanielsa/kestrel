@@ -18,7 +18,7 @@ const bool_ = (v) => v === true || String(v).toLowerCase() === 'true';
 const ts_ = (v) => (v instanceof Date ? v.toISOString() : String(v));
 const str_ = (v, max) => String(v == null ? '' : v).slice(0, max);
 // Plain-text format makes Sheets store these as literal text, never formulas.
-const fmtText_ = (sh, row) => ['cliente', 'modelo', 'estado', 'notas'].forEach((c) => sh.getRange(row, COLS.indexOf(c) + 1).setNumberFormat('@'));
+const fmtText_ = (sh, row) => TEXT_COLS.forEach((c) => sh.getRange(row, COLS.indexOf(c) + 1).setNumberFormat('@'));
 
 function fromRow_(r) {
   return {
@@ -38,7 +38,7 @@ function toRow_(o) {
 
 const valid_ = (o) => o && typeof o.id === 'string' && /^[0-9a-f-]{36}$/i.test(o.id) &&
   Number.isFinite(Number(o.quantidade)) && Number.isFinite(Number(o.preco)) &&
-  typeof o.updated_at === 'string' && !isNaN(Date.parse(o.updated_at));
+  typeof o.updated_at === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/.test(o.updated_at) && !isNaN(Date.parse(o.updated_at));
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);

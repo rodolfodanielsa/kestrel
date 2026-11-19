@@ -102,7 +102,7 @@ test('formula-like text: text columns formatted as plain text before every write
   const sheet = mockAppsScript();
   const mk = (suffix) => bad.map((c, i) =>
     order(`0000000${i}-0000-0000-0000-000000000000`, { cliente: c, modelo: c, notas: c, estado: c, updated_at: suffix }));
-  const textCols = [2, 3, 6, 8];
+  const textCols = [1, 2, 3, 6, 8, 10];
   const assertFormattedBefore = (kind, row) => {
     const w = sheet.log.findIndex(([k, r]) => k === kind && r === row);
     assert.ok(w >= 0);
@@ -122,6 +122,15 @@ test('formula-like text: text columns formatted as plain text before every write
   res = sheet.call(JSON.stringify({ secret: 's3cret', orders: mk('2026-02-01T00:00:00.000Z') }));
   for (let row = 2; row <= bad.length + 1; row++) assertFormattedBefore('set', row);
   assert.deepEqual(res.orders.map((o) => o.modelo), bad);
+});
+
+test('non-ISO updated_at (formula payload) is skipped and never written', () => {
+  const srv = mockAppsScript();
+  const evil = '+HYPERLINK("http://e","x")&" 1 Jan 2020"';
+  const r = srv.call(JSON.stringify({ secret: 's3cret', orders: [order(U1, { updated_at: evil }), order(U1, { updated_at: '2026-01-01' })] }));
+  assert.equal(r.orders.length, 0);
+  assert.equal(srv.data.length, 1);
+  assert.ok(!srv.log.some(([k]) => k === 'append' || k === 'set'));
 });
 
 test('null body gets the clean refusal', () => {
